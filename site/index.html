@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yard Pulse · PCF control demo</title>
+<meta name="description" content="A Power Apps component framework dataset control that turns yard-slot records into a live heatmap. This demo runs the real control bundle on a simulated car terminal.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="YardPulse.css">
+<style>
+  :root {
+    --bg: #f3f4f7;
+    --panel: #ffffff;
+    --line: #e1e4ea;
+    --ink: #161a21;
+    --muted: #5d6675;
+    --accent: #0f6cbd;
+    --accent-ink: #ffffff;
+    --chrome: #1f2633;
+    --chrome-ink: #e8ebf0;
+    --code: #0d1117;
+    --code-ink: #d6dde8;
+    --radius: 12px;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0e1015; --panel: #15181e; --line: #2c323d; --ink: #e8ebf0; --muted: #9aa3b2;
+      --accent: #4aa3f0; --accent-ink: #0b1220; --chrome: #0b0d12; --code: #0b0d12; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1015; --panel: #15181e; --line: #2c323d; --ink: #e8ebf0; --muted: #9aa3b2;
+    --accent: #4aa3f0; --accent-ink: #0b1220; --chrome: #0b0d12; --code: #0b0d12; color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.55 "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", sans-serif;
+  }
+  a { color: var(--accent); }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 0 16px; }
+
+  /* Top bar */
+  .top { display: flex; align-items: center; gap: 12px; padding: 14px 0; }
+  .brand { display: flex; align-items: center; gap: 10px; font: 700 17px "Space Grotesk", sans-serif; color: inherit; text-decoration: none; }
+  .mark { display: grid; grid-template-columns: repeat(3, 6px); gap: 2px; }
+  .mark i { width: 6px; height: 6px; border-radius: 1.5px; background: var(--accent); }
+  .mark i:nth-child(2), .mark i:nth-child(6) { background: #e8a317; }
+  .mark i:nth-child(4) { background: #c4314b; animation: blink 2.4s infinite; }
+  .mark i:nth-child(8), .mark i:nth-child(9) { opacity: .3; }
+  @keyframes blink { 50% { opacity: .25; } }
+  .top nav { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink);
+    font: inherit; font-size: 14px; text-decoration: none; cursor: pointer;
+  }
+  .btn:hover { border-color: var(--muted); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  .btn[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* Hero */
+  .hero { padding: 28px 0 22px; }
+  .hero h1 { margin: 0 0 8px; font: 700 clamp(30px, 5vw, 52px)/1.05 "Space Grotesk", sans-serif; letter-spacing: -.02em; }
+  .hero p { margin: 0; max-width: 720px; color: var(--muted); font-size: 17px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .chip { padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); font-size: 13px; color: var(--muted); }
+  .chip b { color: var(--ink); font-weight: 600; }
+
+  /* Demo layout */
+  .stage { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
+  .app { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--panel); box-shadow: 0 12px 40px rgb(0 0 0 / .08); }
+  .app-bar { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--chrome); color: var(--chrome-ink); font-size: 13px; }
+  .app-bar .waffle { display: grid; grid-template-columns: repeat(3, 3px); gap: 2px; }
+  .app-bar .waffle i { width: 3px; height: 3px; background: currentColor; opacity: .8; }
+  .app-bar .crumbs { opacity: .75; }
+  .app-bar .clock { margin-left: auto; font-variant-numeric: tabular-nums; font-family: ui-monospace, Menlo, monospace; opacity: .9; }
+  .cmd { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 6px 10px; border-bottom: 1px solid var(--line); }
+  .cmd button { padding: 5px 9px; border: 0; border-radius: 4px; background: none; color: var(--ink); font: inherit; font-size: 13px; cursor: pointer; }
+  .cmd button:hover:not(:disabled) { background: var(--bg); }
+  .cmd button:disabled { color: var(--muted); opacity: .6; cursor: default; }
+  .cmd .count { margin-left: auto; color: var(--muted); font-size: 13px; }
+  .form-title { padding: 14px 16px 0; }
+  .form-title h2 { margin: 0; font-size: 18px; }
+  .form-title span { color: var(--muted); font-size: 13px; }
+  #yard { min-height: 420px; }
+  .app { position: relative; }
+
+  .side { display: flex; flex-direction: column; gap: 12px; }
+  .card { padding: 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
+  .card h3 { margin: 0 0 10px; font: 600 12px/1 "Segoe UI", sans-serif; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .row + .row { margin-top: 8px; }
+  label.field { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+  label.field + label.field { margin-top: 10px; }
+  select, input[type="range"] { width: 100%; }
+  select { padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); font: inherit; font-size: 14px; }
+  .hint { margin: 8px 0 0; font-size: 12px; color: var(--muted); }
+  #log { margin: 0; padding: 0; list-style: none; max-height: 220px; overflow: auto; font-size: 12.5px; }
+  #log li { padding: 5px 0; border-bottom: 1px dashed var(--line); }
+  #log li:first-child { animation: slidein .4s ease; }
+  #log time { font-family: ui-monospace, Menlo, monospace; color: var(--muted); }
+  #log li[data-kind="vessel"] { color: var(--accent); }
+  #log li[data-kind="outage"] { color: #c4314b; }
+  @keyframes slidein { from { opacity: 0; transform: translateY(-4px); } }
+
+  /* "Opened record" panel: what openDatasetItem would show */
+  #record {
+    position: absolute; top: 46px; right: 0; bottom: 0; z-index: 20; width: min(320px, 90%);
+    padding: 16px; border-left: 1px solid var(--line); background: var(--panel); box-shadow: -12px 0 30px rgb(0 0 0 / .12);
+    animation: drawer .25s ease;
+  }
+  #record[hidden] { display: none; }
+  @keyframes drawer { from { transform: translateX(24px); opacity: 0; } }
+  #record .eyebrow { font-size: 12px; color: var(--muted); }
+  #record h4 { margin: 2px 0 12px; font: 600 18px ui-monospace, Menlo, monospace; word-break: break-all; }
+  #record dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0 0 14px; font-size: 14px; }
+  #record dt { color: var(--muted); }
+  #record dd { margin: 0; }
+  #record .note { font-size: 12px; color: var(--muted); }
+
+  /* Explainer */
+  section.more { padding: 48px 0 24px; }
+  section.more h2 { font: 700 26px "Space Grotesk", sans-serif; margin: 0 0 16px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .grid3 > * { min-width: 0; }
+  .grid3 .card p { margin: 0 0 10px; color: var(--muted); font-size: 14px; }
+  .grid3 .card h3 { color: var(--ink); font-size: 13px; }
+  pre { margin: 0; padding: 12px; border-radius: 8px; background: var(--code); color: var(--code-ink); font: 12.5px/1.5 ui-monospace, "Cascadia Code", Menlo, monospace; overflow-x: auto; }
+  .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 14px; }
+  .flow code { padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); font-size: 13px; }
+  .flow .arr { color: var(--muted); }
+  footer { padding: 32px 0 48px; color: var(--muted); font-size: 13px; }
+
+  @media (max-width: 980px) {
+    .stage { grid-template-columns: 1fr; }
+    .side { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+    .grid3 { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 560px) {
+    .top nav .hide-sm { display: none; }
+    .app-bar .crumbs { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="./"><span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>Yard Pulse</a>
+    <nav>
+      <button class="btn" id="theme" type="button" aria-label="Toggle dark mode">◐</button>
+      <a class="btn hide-sm" href="https://github.com/phlppgdfry/pcf-yard-pulse">GitHub</a>
+      <a class="btn primary" href="https://github.com/phlppgdfry/pcf-yard-pulse/releases/latest">Get the solution</a>
+    </nav>
+  </header>
+
+  <div class="hero">
+    <h1>Watch the whole yard at once.</h1>
+    <p>Yard Pulse is a Power Apps code component (PCF). Point it at any Dataverse view of yard slots and it draws every block as a live heatmap. Slots that change pulse, units over the dwell limit get a red ring, and a double-click opens the record.</p>
+    <div class="chips">
+      <span class="chip"><b>Real control</b>, the same source as the solution zip</span>
+      <span class="chip"><b>Mock dataset</b>, no Dataverse needed for this demo</span>
+      <span class="chip">Built with <b>pac CLI</b></span>
+      <span class="chip"><b>Keyboard</b> and screen-reader ready</span>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="app">
+      <div class="app-bar">
+        <span class="waffle" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+        <strong>Terminal Ops</strong>
+        <span class="crumbs">North Quay › Yard overview</span>
+        <span class="clock" id="clock" aria-live="off"></span>
+      </div>
+      <div class="cmd" aria-label="Command bar">
+        <button type="button">＋ New slot</button>
+        <button type="button" data-needs-selection>Move unit</button>
+        <button type="button" data-needs-selection>Place hold</button>
+        <button type="button">⟳ Refresh</button>
+        <span class="count" id="selection" aria-live="polite"></span>
+      </div>
+      <div class="form-title">
+        <h2>North Quay car terminal</h2>
+        <span>Yard slots · Active slots view · subgrid with the Yard Pulse control</span>
+      </div>
+      <div id="yard"></div>
+
+      <aside id="record" hidden aria-labelledby="record-title">
+        <div class="eyebrow">openDatasetItem() → Yard slot</div>
+        <h4 id="record-title"></h4>
+        <dl id="record-fields"></dl>
+        <p class="note">In a model-driven app the platform opens the record's main form here. The control only passes the record reference.</p>
+        <button class="btn" id="record-close" type="button">Close</button>
+      </aside>
+    </div>
+
+    <div class="side">
+      <div class="card">
+        <h3>Simulation</h3>
+        <div class="row">
+          <button class="btn primary" id="play" type="button" aria-pressed="false">Play</button>
+          <button class="btn" id="step" type="button">+1 hour</button>
+        </div>
+        <div class="row" role="group" aria-label="Speed">
+          <button class="btn" type="button" data-speed="0" aria-pressed="true">1×</button>
+          <button class="btn" type="button" data-speed="1">3×</button>
+          <button class="btn" type="button" data-speed="2">10×</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Make something happen</h3>
+        <div class="row">
+          <button class="btn" id="vessel" type="button">⚓ Vessel arrives</button>
+          <button class="btn" id="rail" type="button">🚆 Train leaves</button>
+        </div>
+        <div class="row">
+          <select id="outage-block" aria-label="Block"></select>
+          <button class="btn" id="outage" type="button">⚠ Close or reopen row 1</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Maker settings</h3>
+        <label class="field"><span>Colour by</span>
+          <select id="prop-color">
+            <option value="status">Status</option>
+            <option value="dwell">Dwell time</option>
+          </select>
+        </label>
+        <label class="field"><span>Dwell alert · <b id="prop-alert-value">72 h</b></span>
+          <input id="prop-alert" type="range" min="12" max="168" step="12" value="72">
+        </label>
+        <p class="hint">These are the manifest properties a maker sets in the app designer. Viewers can still switch the colouring with the toggle on the control.</p>
+      </div>
+
+      <div class="card">
+        <h3>Event log</h3>
+        <ul id="log" aria-live="off"></ul>
+      </div>
+    </div>
+  </div>
+
+  <section class="more">
+    <h2>How it fits together</h2>
+    <p class="flow">
+      <code>Dataverse view</code><span class="arr">→</span>
+      <code>dataset + property-sets</code><span class="arr">→</span>
+      <code>readSlots()</code><span class="arr">→</span>
+      <code>buildYard()</code><span class="arr">→</span>
+      <code>YardView</code>
+    </p>
+    <p class="hint" style="margin-bottom:20px">The model and the view have no PCF dependency. That lets this page run them without Dataverse, lets the tests check them in Node, and leaves <code>index.ts</code> as a thin adapter.</p>
+    <div class="grid3">
+      <div class="card">
+        <h3>1 · Import</h3>
+        <p>Download the managed solution from the latest release and import it:</p>
+<pre>pac auth create --environment https://yourorg.crm4.dynamics.com
+pac solution import --path YardPulse_managed.zip</pre>
+      </div>
+      <div class="card">
+        <h3>2 · Map your columns</h3>
+        <p>Add the control to any subgrid or view. Bind <b>Block</b>, <b>Row</b>, <b>Bay</b> and <b>Status</b>, plus <b>Dwell</b> and <b>Unit</b> if you have them. Text, choice and lookup columns all work.</p>
+<pre>Status labels it understands:
+Free · Empty · Vrij       → free
+Reserved · Booked · Gepland → reserved
+Blocked · Hold · Defect   → blocked
+anything else             → occupied</pre>
+      </div>
+      <div class="card">
+        <h3>3 · Build it yourself</h3>
+        <p>Every step runs locally and in CI. No environment needed until you deploy:</p>
+<pre>npm ci && npm test
+npm run build            # pcf-scripts
+npm run demo             # this page
+dotnet build solution -c Release</pre>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Yard Pulse is a portfolio project. North Quay, its vessels and VINs are fictional. ·
+    <a href="https://github.com/phlppgdfry/pcf-yard-pulse">Source on GitHub</a>
+  </footer>
+</div>
+<script src="demo.js"></script>
+</body>
+</html>

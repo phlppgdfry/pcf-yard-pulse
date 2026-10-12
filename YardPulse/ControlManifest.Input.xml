@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<manifest>
+  <control namespace="Phlppgdfry" constructor="YardPulse" version="1.0.0" display-name-key="Yard Pulse" description-key="Live heatmap of yard slots: occupancy, dwell time and changes as they happen. Works on any table that has a block, row and bay column." control-type="standard" >
+    <external-service-usage enabled="false">
+    </external-service-usage>
+
+    <type-group name="label">
+      <type>SingleLine.Text</type>
+      <type>OptionSet</type>
+      <type>Lookup.Simple</type>
+    </type-group>
+    <type-group name="number">
+      <type>Whole.None</type>
+      <type>Decimal</type>
+      <type>FP</type>
+    </type-group>
+
+    <data-set name="yardSlots" display-name-key="Yard slots" cds-data-set-options="displayCommandBar:true;displayViewSelector:true;displayQuickFind:true">
+      <property-set name="block" display-name-key="Block" description-key="Yard block or zone the slot belongs to." of-type-group="label" usage="bound" required="true" />
+      <property-set name="row" display-name-key="Row" description-key="Row number inside the block (1-based)." of-type-group="number" usage="bound" required="true" />
+      <property-set name="bay" display-name-key="Bay" description-key="Bay number inside the row (1-based)." of-type-group="number" usage="bound" required="true" />
+      <property-set name="status" display-name-key="Status" description-key="Slot status, e.g. Free, Occupied, Reserved, Blocked." of-type-group="label" usage="bound" required="true" />
+      <property-set name="dwellHours" display-name-key="Dwell (hours)" description-key="How long the current unit has been in the slot." of-type-group="number" usage="bound" required="false" />
+      <property-set name="unit" display-name-key="Unit" description-key="Unit in the slot, e.g. a VIN or container number." of-type-group="label" usage="bound" required="false" />
+    </data-set>
+
+    <property name="colorBy" display-name-key="Colour by" description-key="Colour slots by their status or by how long the unit has been on the yard." of-type="Enum" usage="input" required="true" default-value="status">
+      <value name="status" display-name-key="Status">status</value>
+      <value name="dwell" display-name-key="Dwell time">dwell</value>
+    </property>
+    <property name="dwellAlertHours" display-name-key="Dwell alert (hours)" description-key="Units on the yard for at least this many hours are flagged as overdue." of-type="Whole.None" usage="input" required="false" default-value="72" />
+
+    <resources>
+      <code path="index.ts" order="1"/>
+      <css path="css/YardPulse.css" order="1" />
+    </resources>
+  </control>
+</manifest>

@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - run: npm ci
+
+      # pcf-scripts validates the manifest, generates ManifestTypes and runs ESLint.
+      - name: Build control
+        run: npm run build -- --buildMode production
+
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+
+      - name: Build demo site
+        run: npm run demo:build
+
+      - name: Pack Dataverse solution (managed + unmanaged)
+        run: dotnet build solution/YardPulseSolution.cdsproj -c Release
+
+      - name: Collect solution zips
+        run: |
+          mkdir -p dist
+          cp solution/bin/Release/YardPulseSolution.zip dist/YardPulse_unmanaged.zip
+          cp solution/bin/Release/YardPulseSolution_managed.zip dist/YardPulse_managed.zip
+          unzip -l dist/YardPulse_managed.zip | grep -q "Controls/phg_Phlppgdfry.YardPulse/bundle.js"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: solution
+          path: dist/*.zip
+
+      - uses: actions/upload-pages-artifact@v3
+        if: github.ref == 'refs/heads/main'
+        with:
+          path: site
+
+  pages:
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: solution
+          path: dist
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/*.zip --repo "$GITHUB_REPOSITORY" --title "Yard Pulse $GITHUB_REF_NAME" --generate-notes
